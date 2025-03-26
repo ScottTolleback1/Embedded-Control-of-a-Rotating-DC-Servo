@@ -24,7 +24,11 @@
 #define gamma1 ((int16_t)(0.1122 * Q_SCALE)) 
 #define gamma2 ((int16_t)(0.0140 * Q_SCALE)) 
 
-
+int16_t v = 0;
+int16_t x1 = 0;
+int16_t x2 = 0;
+int16_t u = 0;
+int16_t eps = 0;
 
  /* Controller parameters and variables (add your own code here) */
  
@@ -131,33 +135,28 @@ static inline int16_t div(int16_t x, int16_t y){
    static int8_t ctr = 0;
    if (++ctr < 5) return;
    ctr = 0;
-   int16_t u = 0;
-   int16_t eps = 0;
    int16_t Y = readInput('1');
-   int16_t v = 0;
-   int16_t x1 = 0;
-   int16_t x2 = 0;
+   int32_t scaled_r = r << 13;   // Scale r to Q3.13 format
+   int32_t scaled_Y = Y << 13;
    if (on) {
      /* Insert your controller code here */
 
-     u = sub(
+     int32_t u_temp = sub(
             sub(
                 sub(
-                    mul(kr, r),
+                    mul(kr, scaled_r),
                     mul(k1, x1)
                 ),
                 mul(k2, x2)
             ),
             v
-        );     
-    if(u > 511){
-      u = 511;
-     }
-     if else(u< -512){
-      u = -512;
-     }
+        );    
+    u = u_temp >> 13;  
+    if(u > 511) u = 511;
+    
+    else if(u< -512) u = -512
      writeOutput(u);
-     eps = sub(Y, x2);
+     eps = sub(scaled_Y, x2);
      x1 = add(
         add(
             add(

@@ -32,7 +32,8 @@
  
 int8_t on = 0;                     /* 0=off, 1=on */
 int16_t r = 255;                   /* Reference, corresponds to +5.0 V */
-
+int16_t u = 0;
+int16_t I = 0;
 /** 
  * Write a character on the serial connection
  */
@@ -134,14 +135,19 @@ ISR(TIMER2_COMP_vect){
   static int8_t ctr = 0;
   if (++ctr < 5) return;
   ctr = 0;
-  int16_t u = 0;
-  int16_t I = 0;
+  
   int16_t Y = readInput('0');
+  int32_t scaled_r = r << 13;   // Scale r to Q3.13 format
+  int32_t scaled_Y = Y << 13;
   if (on) {
     /* Insert your controller code here */
-    u =  add(sub(mul(KB, r), mul(K, Y)) , I);
+    int32_t u_temp =  add(sub(mul(KB, scaled_r), mul(K, scaled_Y)) , I);
+    u = u_temp >> 13; 
+    if(u > 511) u = 511;
+       
+     else if(u< -512) u = -512
     writeOutput(u);
-    I = add(I, mul(mul(K, div(h, Ti)), sub(r, Y)));
+    I = add(I, mul(mul(K, div(h, Ti)), sub(scaled_r, scaled_Y)));
 
   } else {                     
     writeOutput(0);     /* Off */

@@ -50,6 +50,11 @@
  #define gamma1 0.1122
  #define gamma2 0.0140
 
+ float v = 0;
+ float x1 = 0;
+ float x2 = 0;
+ float u = 0;
+ float eps = 0;
  
  
  /* Controller parameters and variables (add your own code here) */
@@ -116,22 +121,14 @@
    static int8_t ctr = 0;
    if (++ctr < 5) return;
    ctr = 0;
-   float u = 0;
-   float eps = 0;
    float Y = readInput('1');
-   float v = 0;
-   float x1 = 0;
-   float x2 = 0;
    if (on) {
      /* Insert your controller code here */
 
      u = kr*r - k1*x1 - k2*x2 - v;
-     if(u > 511){
-      u = 511;
-     }
-     if else(u< -512){
-      u = -512;
-     }
+     if(u > 511) u = 511;
+       
+     else if(u< -512) u = -512
      writeOutput(u);
      eps = Y - x2;
      x1 = phi11 * x1 + phi12 * x2 + gamma1 * (u + v ) + l1 * eps;

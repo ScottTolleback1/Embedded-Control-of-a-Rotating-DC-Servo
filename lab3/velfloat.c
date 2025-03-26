@@ -48,7 +48,8 @@
  
  int8_t on = 0;                     /* 0=off, 1=on */
  int16_t r = 255;                   /* Reference, corresponds to +5.0 V */
- 
+ float u = 0;
+ float I = 0;
  /** 
   * Write a character on the serial connection
   */
@@ -108,18 +109,15 @@
    static int8_t ctr = 0;
    if (++ctr < 5) return;
    ctr = 0;
-   float u = 0;
-   float I = 0;
+   
    float Y = readInput('0');
    if (on) {
      /* Insert your controller code here */
      u = K * B * r - K*Y + I;
-     if(u > 511){
-        u = 511;
-       }
-       if else(u< -512){
-        u = -512;
-    }
+     if(u > 511) u = 511;
+       
+     else if(u< -512) u = -512;
+    
      writeOutput(u);
      I = I  + K * h/Ti *(r - Y);
  
