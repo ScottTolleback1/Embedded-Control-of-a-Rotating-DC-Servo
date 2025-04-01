@@ -1,29 +1,9 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <inttypes.h>
-#define Q_SCALE (1 << 13)  
 #define Q 13
-#define K      ((int16_t)(2.6133  * Q_SCALE))  
-#define Ti     ((int16_t)(0.4523  * Q_SCALE))  
-#define B      ((int16_t)(0.5     * Q_SCALE)) 
-#define h      ((int16_t)(0.05    * Q_SCALE))  
-#define KB     ((int16_t)(1.30665 * Q_SCALE))  
-
-#define k1     ((int16_t)(3.2898  * Q_SCALE))  
-#define k2     ((int16_t)(1.7831  * Q_SCALE))  
-#define kr     ((int16_t)(1.7832  * Q_SCALE))  
-#define l1     ((int16_t)(2.0361  * Q_SCALE))  
-#define l2     ((int16_t)(1.2440  * Q_SCALE)) 
-#define lv     ((int16_t)(3.2096  * Q_SCALE))  
-
-#define phi11  ((int16_t)(0.994   * Q_SCALE))  
-#define phi12  ((int16_t)(0       * Q_SCALE))  
-#define phi21  ((int16_t)(0.2493  * Q_SCALE)) 
-#define phi22  ((int16_t)(1       * Q_SCALE))  
-
-#define gamma1 ((int16_t)(0.1122 * Q_SCALE)) 
-#define gamma2 ((int16_t)(0.0140 * Q_SCALE)) 
-
+#define KB     10704
+#define Kh_Ti 2367
 #define INT16_MAX 32767
 #define INT16_MIN -32768
 
@@ -85,47 +65,49 @@ ISR(USART_RXC_vect){
   }
 }
 
-static inline int16_t add(int16_t x, int16_t y){
-    int32_t result = (int32_t)x + y;  
-    if (result > INT16_MAX) {
-        return INT16_MAX;  
-    } else if (result < INT16_MIN) {
-        return INT16_MIN;  
-    }
-    return (int16_t)result;  
+static inline int16_t add_13(int32_t x, int32_t y){
+  int32_t result = x + y;  
+  if (result > INT16_MAX) {
+      return INT16_MAX;  
+  } else if (result < INT16_MIN) {
+      return INT16_MIN;  
+  }
+  return (int16_t)result;  
 }
-static inline int16_t sub(int16_t x, int16_t y){
-    int32_t result = (int32_t)x - y;  
-    if (result > INT16_MAX) {
-        return INT16_MAX;  
-    } else if (result < INT16_MIN) {
-        return INT16_MIN;  
-    }
-    return (int16_t)result;  
-    
+static inline int16_t sub_13(int32_t x, int32_t y){
+  int32_t result =  x - y;  
+  if (result > INT16_MAX) {
+      return INT16_MAX;  
+  } else if (result < INT16_MIN) {
+      return INT16_MIN;  
+  }
+  return (int16_t)result;  
+  
 }
-static inline int16_t mul(int16_t x, int16_t y){
-    int32_t result = (int32_t)x * y;  
-    result = result >> Q;
-    if (result > INT16_MAX) {
-        return INT16_MAX;  
-    } else if (result < INT16_MIN) {
-        return INT16_MIN;  
-    }
-    return (int16_t)result;  
-    
+static inline int16_t mul_13(int32_t x, int32_t y){
+  int32_t result = x *y;  
+  result = (result + (1 << (Q - 1))) >> Q;
+  if (result > INT16_MAX) {
+      return INT16_MAX;  
+  } else if (result < INT16_MIN) {
+      return INT16_MIN;  
+  }
+  return (int16_t)result;  
+  
 }
-static inline int16_t div(int16_t x, int16_t y){
-    if(y == 0) return 0;
-    int32_t result = (int32_t)x << Q; 
-    result = result / (int32_t)y; 
-    if (result > INT16_MAX) {
-        return INT16_MAX;  
-    } else if (result < INT16_MIN) {
-        return INT16_MIN;  
-    }
-    return (int16_t)result; 
+
+static inline int16_t div_13(int32_t x, int32_t y){
+if (y == 0) return 0;
+int32_t result = x << Q; 
+result = result / y;  
+if (result > INT16_MAX) {
+    return INT16_MAX;  
+} else if (result < INT16_MIN) {
+    return INT16_MIN;  
 }
+return (int16_t)result; 
+}
+
 
 /**
  * Interrupt handler for the periodic timer. Interrupts are generated
@@ -141,13 +123,13 @@ ISR(TIMER2_COMP_vect){
   int32_t scaled_Y = Y << 13;
   if (on) {
     /* Insert your controller code here */
-    int32_t u_temp =  add(sub(mul(KB, scaled_r), mul(K, scaled_Y)) , I);
+    int32_t u_temp =  add_13(sub_13(mul_13(KB, scaled_r), mul_13(K, scaled_Y)) , I);
     u = u_temp >> 13; 
     if(u > 511) u = 511;
        
-     else if(u< -512) u = -512
+     else if(u< -512) u = -512;
     writeOutput(u);
-    I = add(I, mul(mul(K, div(h, Ti)), sub(scaled_r, scaled_Y)));
+    I = add_13(I, mul_13(Kh_Ti, sub_13(scaled_r, scaled_Y)));
 
   } else {                     
     writeOutput(0);     /* Off */

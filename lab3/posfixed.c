@@ -2,35 +2,29 @@
 #include <avr/interrupt.h>
 #include <inttypes.h>
 
-#define Q_SCALE (1 << 13)  
+#define Q 13
 
-#define K      ((int16_t)(2.6133  * Q_SCALE))  
-#define Ti     ((int16_t)(0.4523  * Q_SCALE))  
-#define B      ((int16_t)(0.5     * Q_SCALE)) 
-#define h      ((int16_t)(0.05    * Q_SCALE))  
-#define KB     ((int16_t)(1.30665 * Q_SCALE))  
+#define k1     26944
+#define k2     14608 
+#define kr     14609
+#define l1     16678
+#define l2     10184
+#define lv     10184 
 
-#define k1     ((int16_t)(3.2898  * Q_SCALE))  
-#define k2     ((int16_t)(1.7831  * Q_SCALE))  
-#define kr     ((int16_t)(1.7832  * Q_SCALE))  
-#define l1     ((int16_t)(2.0361  * Q_SCALE))  
-#define l2     ((int16_t)(1.2440  * Q_SCALE)) 
-#define lv     ((int16_t)(3.2096  * Q_SCALE))  
-
-#define phi11  ((int16_t)(0.994   * Q_SCALE))  
-#define phi12  ((int16_t)(0       * Q_SCALE))  
-#define phi21  ((int16_t)(0.2493  * Q_SCALE)) 
-#define phi22  ((int16_t)(1       * Q_SCALE))  
-#define gamma1 ((int16_t)(0.1122 * Q_SCALE)) 
-#define gamma2 ((int16_t)(0.0140 * Q_SCALE)) 
+#define phi11  8142
+#define phi12  0
+#define phi21  2041 
+#define phi22  8192
+#define gamma1 919
+#define gamma2 115
 
 int16_t v = 0;
 int16_t x1 = 0;
 int16_t x2 = 0;
 int16_t u = 0;
-int16_t eps = 0;
+int16_t eps_13 = 0;
 
- /* Controller parameters and variables (add your own code here) */
+ /* Controller parameters and variables (add_13 your own code here) */
  
  int8_t on = 0;                     /* 0=off, 1=on */
  int16_t r = 255;                   /* Reference, corresponds to +5.0 V */
@@ -85,8 +79,8 @@ int16_t eps = 0;
      break;
    }
  }
- static inline int16_t add(int16_t x, int16_t y){
-    int32_t result = (int32_t)x + y;  
+ static inline int16_t add_13(int32_t x, int32_t y){
+    int32_t result = x + y;  
     if (result > INT16_MAX) {
         return INT16_MAX;  
     } else if (result < INT16_MIN) {
@@ -94,19 +88,8 @@ int16_t eps = 0;
     }
     return (int16_t)result;  
 }
-static inline int16_t sub(int16_t x, int16_t y){
-    int32_t result = (int32_t)x - y;  
-    if (result > INT16_MAX) {
-        return INT16_MAX;  
-    } else if (result < INT16_MIN) {
-        return INT16_MIN;  
-    }
-    return (int16_t)result;  
-    
-}
-static inline int16_t mul(int16_t x, int16_t y){
-    int32_t result = (int32_t)x *y;  
-    result = result >> Q;
+static inline int16_t sub_13(int32_t x, int32_t y){
+    int32_t result =  x - y;  
     if (result > INT16_MAX) {
         return INT16_MAX;  
     } else if (result < INT16_MIN) {
@@ -115,16 +98,28 @@ static inline int16_t mul(int16_t x, int16_t y){
     return (int16_t)result;  
     
 }
-static inline int16_t div(int16_t x, int16_t y){
-    if(y == 0) return 0;
-    int32_t result = (int32_t)x << Q; 
-    result = result / (int32_t)y; 
+static inline int16_t mul_13(int32_t x, int32_t y){
+    int32_t result = x *y;  
+    result = (result + (1 << (Q - 1))) >> Q;
     if (result > INT16_MAX) {
         return INT16_MAX;  
     } else if (result < INT16_MIN) {
         return INT16_MIN;  
     }
-    return (int16_t)result; 
+    return (int16_t)result;  
+    
+}
+
+static inline int16_t div_13(int32_t x, int32_t y){
+  if (y == 0) return 0;
+  int32_t result = x << Q; 
+  result = result / y;  
+  if (result > INT16_MAX) {
+      return INT16_MAX;  
+  } else if (result < INT16_MIN) {
+      return INT16_MIN;  
+  }
+  return (int16_t)result; 
 }
  
  /**
@@ -136,44 +131,45 @@ static inline int16_t div(int16_t x, int16_t y){
    if (++ctr < 5) return;
    ctr = 0;
    int16_t Y = readInput('1');
-   int32_t scaled_r = r << 13;   // Scale r to Q3.13 format
-   int32_t scaled_Y = Y << 13;
+   int32_t scaled_r = r << Q;   // Scale r to Q3.13 format
+   int32_t scaled_Y = Y << Q;
    if (on) {
      /* Insert your controller code here */
 
-     int32_t u_temp = sub(
-            sub(
-                sub(
-                    mul(kr, scaled_r),
-                    mul(k1, x1)
+     int32_t u_temp = sub_13(
+            sub_13(
+                sub_13(
+                    mul_13(kr, r),
+                    mul_13(k1, x1)
                 ),
-                mul(k2, x2)
+                mul_13(k2, x2)
             ),
             v
         );    
-    u = u_temp >> 13;  
+    u = u_temp >> Q;  
     if(u > 511) u = 511;
     
-    else if(u< -512) u = -512
+    else if(u< -512) u = -512;
      writeOutput(u);
-     eps = sub(scaled_Y, x2);
-     x1 = add(
-        add(
-            add(
-                mul(phi11, x1),
-                mul(phi12, x2)),
-            mul(gamma1, add(u, v))),
-        mul(l1, eps)
+     int16_t x1_old = x1;
+     eps_13 = sub_13(scaled_Y, x2);
+     x1 = add_13(
+        add_13(
+            add_13(
+                mul_13(phi11, x1),
+                mul_13(phi12, x2)),
+            mul_13(gamma1, add_13(u, v))),
+        mul_13(l1, eps_13)
     );
-     x2 = add(
-            add(
-                add(
-                    mul(phi21, x1),
-                    mul(phi22, x2)),
-                mul(gamma2, add(u, v))),
-            mul(l2, eps)
+     x2 = add_13(
+            add_13(
+                add_13(
+                    mul_13(phi21, x1_old),
+                    mul_13(phi22, x2)),
+                mul_13(gamma2, add_13(u, v))),
+            mul_13(l2, eps_13)
         );
-     v = add(v, lv);
+     v = add_13(v, mul_13(eps_13, lv));
      
  
    } else {                     
